@@ -8,7 +8,7 @@ require 'pry'
 
 class TelegramBot
   TOKEN = '1246743304:AAFY4X3KH0BxPPbL0UtIPGZf3ExvpW8FGH8'
-  ARRCOIN = ['BTC', 'ETH', 'Xrp', 'BCH'].freeze
+  ARRCOIN = ['BTC', 'ETH', 'XRP', 'BCH'].freeze
 
   def coin_message
     bot.listen do |message|
@@ -16,9 +16,12 @@ class TelegramBot
 	    	Telegram::Bot::Types::KeyboardButton.new(text: 'Start', one_time_keyboard: true)
 	    ]
 	  	markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
-	  	bot.api.send_message(chat_id: message.chat.id, text: 'Press the button start', reply_markup: markup)
-	  	
-	  	start() if message.text == 'Start'
+
+      if message.text !=  'Start'
+	  	  bot.api.send_message(chat_id: message.chat.id, text: 'Press the button start', reply_markup: markup)
+	  	end
+
+	  	start() if message.text == 'Start' 
     end
   end
 
@@ -27,13 +30,16 @@ class TelegramBot
 	  	kb = [
 	    	Telegram::Bot::Types::KeyboardButton.new(text: 'BTC', one_time_keyboard: true),
 	    	Telegram::Bot::Types::KeyboardButton.new(text: 'ETH', one_time_keyboard: true),
-	    	Telegram::Bot::Types::KeyboardButton.new(text: 'Xrp', one_time_keyboard: true),
+	    	Telegram::Bot::Types::KeyboardButton.new(text: 'XRP', one_time_keyboard: true),
 	    	Telegram::Bot::Types::KeyboardButton.new(text: 'BCH', one_time_keyboard: true),
 	    	Telegram::Bot::Types::KeyboardButton.new(text: 'Home', one_time_keyboard: true)
 	    ]
 	  	markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
-	  	bot.api.send_message(chat_id: message.chat.id, text: 'Please chose coin', reply_markup: markup)
-	  	
+
+      if message.text == 'Start' || message.text == 'Back to chose coin'
+	  	  bot.api.send_message(chat_id: message.chat.id, text: 'Please chose coin', reply_markup: markup)
+	  	end
+
 	  	coin(message.text) if ARRCOIN.include?(message.text)
 
 	  	coin_message() if message.text == 'Home'
@@ -45,14 +51,17 @@ class TelegramBot
 			name_coin = currency
 	    kb = [
 		   	Telegram::Bot::Types::KeyboardButton.new(text: 'Price', one_time_keyboard: true),
-		   	Telegram::Bot::Types::KeyboardButton.new(text: 'Back to previous step', one_time_keyboard: true),
+		   	Telegram::Bot::Types::KeyboardButton.new(text: 'Back to chose coin', one_time_keyboard: true),
 		  ]
 		  markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
-		  bot.api.send_message(chat_id: message.chat.id, text: 'Please chose next step', reply_markup: markup)
-	   
+
+      if ARRCOIN.include?(message.text) || message.text == 'Back to previous step'
+		    bot.api.send_message(chat_id: message.chat.id, text: 'Please chose next step', reply_markup: markup)
+	    end 
+
 	    price(message, name_coin) if message.text == 'Price'
 
-	    start() if message.text == 'Back to previous step'
+	    start() if message.text == 'Back to chose coin'
     end
   end
 
@@ -67,11 +76,14 @@ class TelegramBot
 		   	Telegram::Bot::Types::KeyboardButton.new(text: 'Back to previous step', one_time_keyboard: true),
 		  ]
 		  markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
-		  bot.api.send_message(chat_id: message.chat.id, text: 'Please chose next step', reply_markup: markup)
-	   
+      
+      if message.text == 'Price'
+		    bot.api.send_message(chat_id: message.chat.id, text: 'Please chose next step', reply_markup: markup)
+	    end
+
 	    buy(message, name_coin) if message.text == 'Buy'
 
-	    start() if message.text == 'Back to previous step'
+	    coin(name_coin) if message.text == 'Back to previous step'
     	
     end
   end
@@ -92,12 +104,13 @@ class TelegramBot
     response = RestClient.get(url, headers = parameters)
     parsed_response = JSON.parse(response)
     parsed_responce_data_arr = parsed_response['data']
-    bitcoin_price = parsed_response['data'].map do |coin_param|
-      next unless coin_param['name'] = coin
 
-      @coin_price = coin_param['quote']['USD']['price'].to_i
-      send_message(message.from.id, @coin_price)
-      return
+    bitcoin_price = parsed_response['data'].map do |coin_param|
+      if coin_param['symbol'] == coin
+        @coin_price = coin_param['quote']['USD']['price'].to_f
+        send_message(message.from.id, @coin_price)
+        return
+      end
     end
   end
 
