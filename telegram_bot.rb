@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-require 'telegram/bot'
+require_relative 'db_pg'
 require_relative 'crypto_bot_index'
+
+require 'telegram/bot'
 require 'rest-client'
 require 'json'
 require 'pry'
@@ -67,10 +69,10 @@ class TelegramBot
 
   def price(message, name_coin)
     bot.listen do |message|
-  		url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest'
-  		parameters = { 'X-CMC_PRO_API_KEY' => 'a003018f-63eb-45a0-80c0-6dfa69ab4b7f', 'start'=>'1', 'limit'=>'1', 'convert'=>"USD,#{name_coin}"}
-  		coinmarket_api(message, url, parameters, name_coin)
-
+      if message.text == 'Price'
+  		  parameters = { 'X-CMC_PRO_API_KEY' => CryptoBotIndex::API_KEY, 'start'=>'1', 'limit'=>'1', 'convert'=>"USD,#{name_coin}"}
+  		  @coin_price = CryptoBotIndex.coinmarket_api(message, parameters, name_coin)
+      end  
 	   	kb = [
 		   	Telegram::Bot::Types::KeyboardButton.new(text: 'Buy', one_time_keyboard: true),
 		   	Telegram::Bot::Types::KeyboardButton.new(text: 'Back to previous step', one_time_keyboard: true),
@@ -81,17 +83,26 @@ class TelegramBot
 		    bot.api.send_message(chat_id: message.chat.id, text: 'Please chose next step', reply_markup: markup)
 	    end
 
-	    buy(message, name_coin) if message.text == 'Buy'
+	    buy(message, name_coin, @coin_price) if message.text == 'Buy'
 
 	    coin(name_coin) if message.text == 'Back to previous step'
     	
     end
   end
 
-  def buy(message, name_coin)
-  	bot.listen do |message|
-  		bot.api.send_message(chat_id: message.chat.id, text: 'Buy 000')
-  	end
+  def buy(message, name_coin, coin_price)
+    
+    bot.listen do |message|
+      coin = name_coin
+      bot.api.send_message(chat_id: message.chat.id, text: 'Please write quantity coin that you wanna buy')
+      if message.text.to_f > 0
+        con.exec "INSERT INTO Users VALUES(1,#{message.chat.first_name}, #{message.chat.id}, '#{coin}', #{(message.text).to_f} , #{coin_price} )"
+      end
+    end
+  end
+
+  def send_message(chat_id, message)
+    bot.api.sendMessage(chat_id: chat_id, text: message)
   end
 
   private
@@ -100,21 +111,4 @@ class TelegramBot
     Telegram::Bot::Client.run(TOKEN) { |bot| return bot }
   end
 
-  def coinmarket_api(message, url, parameters = {}, coin)
-    response = RestClient.get(url, headers = parameters)
-    parsed_response = JSON.parse(response)
-    parsed_responce_data_arr = parsed_response['data']
-
-    bitcoin_price = parsed_response['data'].map do |coin_param|
-      if coin_param['symbol'] == coin
-        @coin_price = coin_param['quote']['USD']['price'].to_f
-        send_message(message.from.id, @coin_price)
-        return
-      end
-    end
-  end
-
-  def send_message(chat_id, message)
-    bot.api.sendMessage(chat_id: chat_id, text: message)
-  end
 end

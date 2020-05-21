@@ -1,5 +1,4 @@
 require 'pg'
-require 'pry'
 
 begin
 
@@ -7,7 +6,7 @@ begin
     
     # con.exec "DROP TABLE IF EXISTS Users"
     # con.exec "CREATE TABLE Users(Id INTEGER PRIMARY KEY, 
-    #     Name VARCHAR(20), Number INT, Coin VARCHAR(20), Quantity INT, Price_usd INT)"
+    #     Name VARCHAR(20), ID_Telegram_User INT, Coin VARCHAR(20), Quantity VARCHAR(20), Price_usd VARCHAR(20))"
     # con.exec "INSERT INTO Users VALUES(1,'Oleg',022222222, 'btc', 2 , 111)"
 
     rs = con.exec "SELECT * FROM Users"
