@@ -96,7 +96,7 @@ class TelegramBot
       coin = name_coin
       bot.api.send_message(chat_id: message.chat.id, text: 'Please write quantity coin that you wanna buy')
       if message.text.to_f > 0
-        con.exec "INSERT INTO Users VALUES(1,#{message.chat.first_name}, #{message.chat.id}, '#{coin}', #{(message.text).to_f} , #{coin_price} )"
+        DBPG.new.add_coin_to_user(message.chat.first_name, message.chat.id, coin, message.text.to_f, coin_price)
       end
     end
   end

@@ -1,24 +1,38 @@
 require 'pg'
 
-begin
+class DBPG
+	def connect
+		begin
+			db_credential
+			
+			# @con.exec "DROP TABLE IF EXISTS Users"
+			# @con.exec "CREATE TABLE Users(Id INTEGER PRIMARY KEY, 
+			#     Name Text, ID_Telegram_User INT, Coin Text, Quantity VARCHAR(20), Price_usd VARCHAR(20))"
 
-    con = PG.connect :dbname => 'botdb', :user => 'oleg'
-    
-    # con.exec "DROP TABLE IF EXISTS Users"
-    # con.exec "CREATE TABLE Users(Id INTEGER PRIMARY KEY, 
-    #     Name VARCHAR(20), ID_Telegram_User INT, Coin VARCHAR(20), Quantity VARCHAR(20), Price_usd VARCHAR(20))"
-    # con.exec "INSERT INTO Users VALUES(1,'Oleg',022222222, 'btc', 2 , 111)"
+			rs = @con.exec "SELECT * FROM Users"
+			rs.each do |row|
+			  puts row
+			end
+		rescue PG::Error => e
 
-    rs = con.exec "SELECT * FROM Users"
-    rs.each do |row|
-      puts row
-    end
-rescue PG::Error => e
+			puts e.message 
+			
+		ensure
 
-    puts e.message 
-    
-ensure
+			@con.close if @con
+			
+		end
+	end
 
-    con.close if con
-    
+	def add_coin_to_user(name_user, chat_id, coin, quantity, price)
+		db_credential
+		@con.exec "INSERT INTO Users VALUES(2, '#{name_user}', #{chat_id}, '#{coin}', #{(quantity).to_f} , #{price} )"
+	end
+
+	private
+
+	def db_credential
+		@con = PG.connect :dbname => 'botdb', :user => 'oleg'
+	end
 end
+DBPG.new.connect()
