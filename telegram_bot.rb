@@ -14,17 +14,41 @@ class TelegramBot
 
   def coin_message
     bot.listen do |message|
-	  	kb = [
-	    	Telegram::Bot::Types::KeyboardButton.new(text: 'Start', one_time_keyboard: true)
-	    ]
-	  	markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
+      arr_name_btn = ['Start', 'Wallet', 'Transaction', 'Terms of Use']
+      kb = [
+        Telegram::Bot::Types::KeyboardButton.new(text: arr_name_btn[0], one_time_keyboard: true),
+        Telegram::Bot::Types::KeyboardButton.new(text: arr_name_btn[1], one_time_keyboard: true),
+        Telegram::Bot::Types::KeyboardButton.new(text: arr_name_btn[2], one_time_keyboard: true),
+        Telegram::Bot::Types::KeyboardButton.new(text: arr_name_btn[3], one_time_keyboard: true),
 
-      if message.text !=  'Start'
-	  	  bot.api.send_message(chat_id: message.chat.id, text: 'Press the button start', reply_markup: markup)
-	  	end
+      ]
+      markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
 
-	  	start() if message.text == 'Start' 
+      if arr_name_btn.include?(message.text) == false
+        bot.api.send_message(chat_id: message.chat.id, text: 'Choose the button', reply_markup: markup)
+      end
+
+      start() if message.text == 'Start' 
+      terms() if message.text == 'Terms of Use'
+      Wallet.new() if message.text == 'Wallet' 
+      Transaction.new() if message.text == 'Transaction' 
     end
+  end
+
+  def terms
+    bot.listen do |message|
+      kb = [
+        Telegram::Bot::Types::KeyboardButton.new(text: "Back to start", one_time_keyboard: true),
+      ]
+      markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
+
+      if message.text == "Terms of Use" 
+        bot.api.send_message(chat_id: message.chat.id, text: 'This bot is simulation of trading platform, all that you do in this bot is for fun and training your skills at trading. For start we give you 1000 poin, 1 point = 1 $. Have fun)))', reply_markup: markup)
+      end
+      
+      coin_message() if message.text == 'Back to start' 
+    end
+  
   end
 
   def start
