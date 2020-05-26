@@ -9,8 +9,8 @@ end
 
 gem 'coinmarketcap'
 gem 'json'
+gem 'pg'
 gem 'pry'
 gem 'rest-client'
 gem 'rubocop'
 gem 'telegram-bot-ruby', '~> 0.12.0'
-gem 'pg'
