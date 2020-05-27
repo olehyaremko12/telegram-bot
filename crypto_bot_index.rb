@@ -18,7 +18,7 @@ class CryptoBotIndex
       next unless coin_param['symbol'] == coin
 
       @coin_price = coin_param['quote']['USD']['price'].to_f
-      TelegramBot.new.send_message(message.from.id, @coin_price)
+      TelegramBot.new.send_message(message.from.id, "Current price = #{@coin_price}")
       return @coin_price
     end
   end

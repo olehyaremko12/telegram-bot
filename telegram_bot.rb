@@ -23,7 +23,6 @@ class TelegramBot
         Telegram::Bot::Types::KeyboardButton.new(text: arr_name_btn[1], one_time_keyboard: true),
         Telegram::Bot::Types::KeyboardButton.new(text: arr_name_btn[2], one_time_keyboard: true),
         Telegram::Bot::Types::KeyboardButton.new(text: arr_name_btn[3], one_time_keyboard: true)
-
       ]
       markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
 
@@ -32,11 +31,11 @@ class TelegramBot
       end
 
       if message.text == 'Start'
-        start
         User.new.add_user(message.chat.first_name, message.chat.id)
+        start
       end
       terms if message.text == 'Terms of Use'
-      Wallet.new if message.text == 'Wallet'
+      Wallet.new.show_wallet(message) if message.text == 'Wallet'
       Transaction.new if message.text == 'Transaction'
     end
   end
@@ -118,22 +117,27 @@ class TelegramBot
     end
   end
 
-  def buy(_message, name_coin, coin_price)
+  def buy(message, name_coin, coin_price)
     bot.listen do |message|
       coin = name_coin
-      bot.api.send_message(chat_id: message.chat.id, text: 'Please write quantity coin that you wanna buy')
+
+      if message.text == 'Buy'
+        bot.api.send_message(chat_id: message.chat.id, text: 'Please write quantity coin that you wanna buy')
+      end
+        
       if message.text.to_f > 0
         Transaction.new.add_transaction("buy", coin, message.text.to_f, coin_price, message.chat.id)
         Wallet.new.buy_coin(coin, message.text.to_f, message.chat.id)
+        bot.api.send_message(chat_id: message.chat.id, text: "You just buy #{message.text} #{name_coin}")
       end
+
+      price(message, name_coin) if message.text == 'Back to previous step'
     end
   end
 
   def send_message(chat_id, message)
     bot.api.sendMessage(chat_id: chat_id, text: message)
   end
-
-  private
 
   def bot
     Telegram::Bot::Client.run(TOKEN) { |bot| return bot }
