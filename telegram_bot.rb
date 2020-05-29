@@ -36,7 +36,7 @@ class TelegramBot
       end
       terms if message.text == 'Terms of Use'
       Wallet.new.show_wallet(message) if message.text == 'Wallet'
-      Transaction.new if message.text == 'Transaction'
+      Transaction.new.show_transaction(message) if message.text == 'Transaction'
     end
   end
 
@@ -124,11 +124,12 @@ class TelegramBot
       if message.text == 'Buy'
         bot.api.send_message(chat_id: message.chat.id, text: 'Please write quantity coin that you wanna buy')
       end
+
         
       if message.text.to_f > 0
-        Transaction.new.add_transaction("buy", coin, message.text.to_f, coin_price, message.chat.id)
-        Wallet.new.buy_coin(coin, message.text.to_f, message.chat.id)
-        bot.api.send_message(chat_id: message.chat.id, text: "You just buy #{message.text} #{name_coin}")
+        # Transaction.new.add_transaction("buy", coin, message.text.to_f, coin_price, message.chat.id)
+        Wallet.new.buy_coin(coin, message, message.chat.id, coin_price)
+        # bot.api.send_message(chat_id: message.chat.id, text: "You just buy #{message.text} #{name_coin}")
       end
 
       price(message, name_coin) if message.text == 'Back to previous step'

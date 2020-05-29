@@ -32,12 +32,12 @@ class DBPG
     users.each do |row| 
       puts row
     end
-
+    puts '------------------------------'
     transactions = DBPG::CON.exec 'SELECT * FROM Transactions'
     transactions.each do |row| 
       puts row
     end
-
+    puts '------------------------------'
     wallet = DBPG::CON.exec 'SELECT * FROM Wallets'
     wallet.each do |row| 
       puts row

@@ -5,16 +5,26 @@ require_relative 'telegram_bot'
 
 class Wallet
 
-	def buy_coin(coin, quantity, chat_id)
+	def buy_coin(coin, message, chat_id, coin_price)
+    quantity = message.text.to_f
     last_wallet_id
+    user_points(chat_id)
 
     user_have_coin= DBPG::CON.exec "SELECT * FROM Wallets WHERE User_Id = #{chat_id} AND Coin = '#{coin}'"
 
-    if user_have_coin.values.length > 0
-      DBPG::CON.exec "UPDATE Wallets SET Quantity = #{user_have_coin.values[0][2].to_f + quantity} WHERE User_Id = #{chat_id} AND Coin = '#{coin}'"
+    if quantity * coin_price <= @points_quantity
+      @points_quantity -= quantity * coin_price
+      if user_have_coin.values.length > 0
+        DBPG::CON.exec "UPDATE Wallets SET Quantity = #{user_have_coin.values[0][2].to_f + quantity} WHERE User_Id = #{chat_id} AND Coin = '#{coin}'"
+      else
+        DBPG::CON.exec "INSERT INTO Wallets VALUES(#{@last_id + 1}, '#{coin}', #{quantity}, #{chat_id} )"
+      end
+      DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@points_quantity} WHERE User_Id = #{chat_id} AND Coin = 'Point'"
+      Transaction.new.add_transaction("buy", coin, message.text.to_f, coin_price, message.chat.id)
+      TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: "You just buy #{message.text} #{coin}")
     else
-      DBPG::CON.exec "INSERT INTO Wallets VALUES(#{@last_id + 1}, '#{coin}', #{quantity}, #{chat_id} )"
-    end  
+      TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: 'You don`t have enough points')
+    end
 	end
 
   def show_wallet(message)
@@ -85,6 +95,9 @@ class Wallet
         @coin_price = CryptoBotIndex.coinmarket_api(message, parameters, @coin)
         Transaction.new.add_transaction("sell", @coin, message.text.to_f, @coin_price, message.chat.id)
         TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: "You just sold #{message.text} #{@coin}")
+        user_points(message.chat.id)
+        @sell_points_quantity = (message.text.to_f * @coin_price) + @points_quantity
+        DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@sell_points_quantity} WHERE User_Id = #{message.chat.id} AND Coin = 'Point'"
       end 
     end
   end
@@ -105,5 +118,10 @@ class Wallet
       @current_quantity = value[2].to_f
       @coin = value[1]
     end
+  end
+
+  def user_points(chat_id)
+    user_points = DBPG::CON.exec "SELECT * FROM Wallets WHERE User_Id = #{chat_id} AND Coin = 'Point'"
+    @points_quantity = user_points.values[0][2].to_f
   end
 end

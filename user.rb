@@ -8,7 +8,7 @@ class User
     if @uniq
       DBPG::CON.exec "INSERT INTO Users VALUES( #{chat_id}, '#{name_user}')"
       DBPG::CON.exec "INSERT INTO Wallets VALUES(1, 'Point', 10000, #{chat_id} )"
-      DBPG::CON.exec "INSERT INTO Transactions VALUES( 1, first start, '#{coin}', #{quantity}, #{price}, #{chat_id})"
+      DBPG::CON.exec "INSERT INTO Transactions VALUES( 1, 'first start', 'Point', 10000, 1, #{chat_id})"
     end
   end
 
