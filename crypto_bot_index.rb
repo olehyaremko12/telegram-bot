@@ -17,8 +17,8 @@ class CryptoBotIndex
     parsed_response['data'].map do |coin_param|
       next unless coin_param['symbol'] == coin
 
-      @coin_price = coin_param['quote']['USD']['price'].to_f
-      TelegramBot.new.send_message(message.from.id, "Current price = #{@coin_price}")
+      @coin_price = coin_param['quote']['USD']['price'].round(4)
+      TelegramBot.new.send_message(message.from.id, "Current price = #{@coin_price.round(4)}")
       return @coin_price
     end
   end

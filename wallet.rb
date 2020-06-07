@@ -5,7 +5,7 @@ require_relative 'telegram_bot'
 
 class Wallet
   def buy_coin(coin, message, chat_id, coin_price)
-    quantity = message.text.to_f
+    quantity = message.text.to_f.round(4)
     last_wallet_id
     user_points(chat_id)
 
@@ -14,12 +14,12 @@ class Wallet
     if quantity * coin_price <= @points_quantity
       @points_quantity -= quantity * coin_price
       if !user_have_coin.values.empty?
-        DBPG::CON.exec "UPDATE Wallets SET Quantity = #{user_have_coin.values[0][2].to_f + quantity} WHERE User_Id = #{chat_id} AND Coin = '#{coin}'"
+        DBPG::CON.exec "UPDATE Wallets SET Quantity = #{user_have_coin.values[0][2].to_f.round(4) + quantity} WHERE User_Id = #{chat_id} AND Coin = '#{coin}'"
       else
         DBPG.new.insert_wallets(@last_id + 1, coin, quantity, chat_id)
       end
       DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@points_quantity} WHERE User_Id = #{chat_id} AND Coin = 'Point'"
-      Transaction.new.add_transaction('buy', coin, message.text.to_f, coin_price, message.chat.id)
+      Transaction.new.add_transaction('buy', coin, message.text.to_f.round(4), coin_price, message.chat.id)
       TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: "You just buy #{message.text} #{coin}")
     else
       TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: 'You don`t have enough points')
@@ -41,10 +41,10 @@ class Wallet
         user_wallet.values.each do |value|
           @coin_price = CryptoBotIndex.new.parameter_api(message, value[1])
           if value[1] != 'Point'
-            amount_usd += @coin_price * value[2].to_f
-            TelegramBot.new.send_message(message.chat.id, "#{value[1]} quantity - #{value[2]}, total(#{value[1]}) - #{@coin_price * value[2].to_f}")
+            amount_usd += @coin_price * value[2].to_f.round(4)
+            TelegramBot.new.send_message(message.chat.id, "#{value[1]} quantity - #{value[2]}, total(#{value[1]}) - #{@coin_price * value[2].to_f.round(4)}")
           else
-            amount_usd += value[2].to_f
+            amount_usd += value[2].to_f.round(4)
             TelegramBot.new.send_message(message.chat.id, "#{value[1]} quantity - #{value[2]}")
           end
         end
@@ -81,13 +81,13 @@ class Wallet
       current_quantity_coin(message)
       sell_coin(message) if message.text == 'Back to wallet'
 
-      if message.text.to_f <= @current_quantity && TelegramBot::ARRCOIN.include?(message.text) == false
-        DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@current_quantity - message.text.to_f} WHERE User_Id = #{message.chat.id} AND Coin = '#{@coin}'"
+      if message.text.to_f.round(4) <= @current_quantity && TelegramBot::ARRCOIN.include?(message.text) == false
+        DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@current_quantity - message.text.to_f.round(4)} WHERE User_Id = #{message.chat.id} AND Coin = '#{@coin}'"
         @coin_price = CryptoBotIndex.new.parameter_api(message, @coin)
-        Transaction.new.add_transaction('sell', @coin, message.text.to_f, @coin_price, message.chat.id)
+        Transaction.new.add_transaction('sell', @coin, message.text.to_f.round(4), @coin_price, message.chat.id)
         TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: "You just sold #{message.text} #{@coin}")
         user_points(message.chat.id)
-        @sell_points_quantity = (message.text.to_f * @coin_price) + @points_quantity
+        @sell_points_quantity = (message.text.to_f.round(4) * @coin_price) + @points_quantity
         DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@sell_points_quantity} WHERE User_Id = #{message.chat.id} AND Coin = 'Point'"
       end
     end
@@ -99,20 +99,22 @@ class Wallet
     wallet = DBPG::CON.exec 'SELECT * FROM Wallets'
     @last_id = 0
     wallet.each do |row|
-      @last_id = row['id'].to_i
+      if row['id'].to_i > @last_id
+        @last_id = row['id'].to_i
+      end
     end
   end
 
   def current_quantity_coin(message)
     user_wallet = DBPG::CON.exec "SELECT * FROM Wallets WHERE User_Id = #{message.chat.id} AND Coin = '#{message.text}'"
     user_wallet.values.each do |value|
-      @current_quantity = value[2].to_f
+      @current_quantity = value[2].to_f.round(4)
       @coin = value[1]
     end
   end
 
   def user_points(chat_id)
     user_points = DBPG::CON.exec "SELECT * FROM Wallets WHERE User_Id = #{chat_id} AND Coin = 'Point'"
-    @points_quantity = user_points.values[0][2].to_f
+    @points_quantity = user_points.values[0][2].to_f.round(4)
   end
 end
