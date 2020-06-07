@@ -1,0 +1,2 @@
+This bot is simulation of trading platform, all that you do in this bot is for fun and training your skills at trading. 
+For start we give you 1000 poin, 1 point = 1 $. Have fun)))

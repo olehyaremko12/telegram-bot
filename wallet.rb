@@ -4,48 +4,43 @@ require_relative 'db_pg'
 require_relative 'telegram_bot'
 
 class Wallet
-
-	def buy_coin(coin, message, chat_id, coin_price)
+  def buy_coin(coin, message, chat_id, coin_price)
     quantity = message.text.to_f
     last_wallet_id
     user_points(chat_id)
 
-    user_have_coin= DBPG::CON.exec "SELECT * FROM Wallets WHERE User_Id = #{chat_id} AND Coin = '#{coin}'"
+    user_have_coin = DBPG::CON.exec "SELECT * FROM Wallets WHERE User_Id = #{chat_id} AND Coin = '#{coin}'"
 
     if quantity * coin_price <= @points_quantity
       @points_quantity -= quantity * coin_price
-      if user_have_coin.values.length > 0
+      if !user_have_coin.values.empty?
         DBPG::CON.exec "UPDATE Wallets SET Quantity = #{user_have_coin.values[0][2].to_f + quantity} WHERE User_Id = #{chat_id} AND Coin = '#{coin}'"
       else
-        DBPG::CON.exec "INSERT INTO Wallets VALUES(#{@last_id + 1}, '#{coin}', #{quantity}, #{chat_id} )"
+        DBPG.new.insert_wallets(@last_id + 1, coin, quantity, chat_id)
       end
       DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@points_quantity} WHERE User_Id = #{chat_id} AND Coin = 'Point'"
-      Transaction.new.add_transaction("buy", coin, message.text.to_f, coin_price, message.chat.id)
+      Transaction.new.add_transaction('buy', coin, message.text.to_f, coin_price, message.chat.id)
       TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: "You just buy #{message.text} #{coin}")
     else
       TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: 'You don`t have enough points')
     end
-	end
+  end
 
-  def show_wallet(message)
+  def show_wallet(_message)
     TelegramBot.new.bot.listen do |message|
-      kb = [
-        Telegram::Bot::Types::KeyboardButton.new(text: "Sell coin", one_time_keyboard: true),
-        Telegram::Bot::Types::KeyboardButton.new(text: "Back to home", one_time_keyboard: true),
-      ]
-      markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
-      
+      arr_name_btn = ['Sell coin', 'Back to home']
+      @markup = TelegramBot.new.iterate_btn(arr_name_btn)
+
       TelegramBot.new.coin_message if message.text == 'Back to home'
       sell_coin(message) if message.text == 'Sell coin'
 
-      if message.text == 'Wallet' || message.text == "Back to wallet"
-        TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: 'Your wallet', reply_markup: markup)
+      if message.text == 'Wallet' || message.text == 'Back to wallet'
+        TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: 'Your wallet', reply_markup: @markup)
         user_wallet = DBPG::CON.exec "SELECT * FROM Wallets WHERE User_Id = #{message.chat.id}"
         amount_usd = 0
         user_wallet.values.each do |value|
-          parameters = { 'X-CMC_PRO_API_KEY' => CryptoBotIndex::API_KEY, 'start' => '1', 'limit' => '1', 'convert' => "USD,#{value[1]}" }
-          @coin_price = CryptoBotIndex.coinmarket_api(message, parameters, value[1])
-          if value[1] != "Point"
+          @coin_price = CryptoBotIndex.new.parameter_api(message, value[1])
+          if value[1] != 'Point'
             amount_usd += @coin_price * value[2].to_f
             TelegramBot.new.send_message(message.chat.id, "#{value[1]} quantity - #{value[2]}, total(#{value[1]}) - #{@coin_price * value[2].to_f}")
           else
@@ -58,17 +53,15 @@ class Wallet
     end
   end
 
-  def sell_coin(message)
+  def sell_coin(_message)
     TelegramBot.new.bot.listen do |message|
       kb = [
-        Telegram::Bot::Types::KeyboardButton.new(text: "Back to wallet", one_time_keyboard: true),
+        TelegramBot::BTN.new(text: 'Back to wallet', one_time_keyboard: true)
       ]
       user_wallet = DBPG::CON.exec "SELECT * FROM Wallets WHERE User_Id = #{message.chat.id}"
       user_wallet.values.each do |value|
-        if value[1] != "Point"
-          kb.push(Telegram::Bot::Types::KeyboardButton.new(text: "#{value[1]}", one_time_keyboard: true))
-        end
-      end      
+        kb.push(TelegramBot::BTN.new(text: (value[1]).to_s, one_time_keyboard: true)) if value[1] != 'Point'
+      end
       markup = Telegram::Bot::Types::ReplyKeyboardMarkup.new(keyboard: kb)
 
       if message.text == 'Sell coin'
@@ -76,38 +69,36 @@ class Wallet
       end
 
       sell_current_coin(message) if TelegramBot::ARRCOIN.include?(message.text)
-      show_wallet(message) if message.text == "Back to wallet"
+      show_wallet(message) if message.text == 'Back to wallet'
     end
   end
 
-  def sell_current_coin(message)
+  def sell_current_coin(_message)
     TelegramBot.new.bot.listen do |message|
-
       if TelegramBot::ARRCOIN.include?(message.text)
         TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: "Write quantity #{message.text} that you wanna sell")
       end
       current_quantity_coin(message)
-      sell_coin(message) if message.text == "Back to wallet"
+      sell_coin(message) if message.text == 'Back to wallet'
 
-      if message.text.to_f <= @current_quantity && TelegramBot::ARRCOIN.include?(message.text) == false 
+      if message.text.to_f <= @current_quantity && TelegramBot::ARRCOIN.include?(message.text) == false
         DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@current_quantity - message.text.to_f} WHERE User_Id = #{message.chat.id} AND Coin = '#{@coin}'"
-        parameters = { 'X-CMC_PRO_API_KEY' => CryptoBotIndex::API_KEY, 'start' => '1', 'limit' => '1', 'convert' => "USD,#{@coin}" }
-        @coin_price = CryptoBotIndex.coinmarket_api(message, parameters, @coin)
-        Transaction.new.add_transaction("sell", @coin, message.text.to_f, @coin_price, message.chat.id)
+        @coin_price = CryptoBotIndex.new.parameter_api(message, @coin)
+        Transaction.new.add_transaction('sell', @coin, message.text.to_f, @coin_price, message.chat.id)
         TelegramBot.new.bot.api.send_message(chat_id: message.chat.id, text: "You just sold #{message.text} #{@coin}")
         user_points(message.chat.id)
         @sell_points_quantity = (message.text.to_f * @coin_price) + @points_quantity
         DBPG::CON.exec "UPDATE Wallets SET Quantity = #{@sell_points_quantity} WHERE User_Id = #{message.chat.id} AND Coin = 'Point'"
-      end 
+      end
     end
   end
 
-	private
+  private
 
   def last_wallet_id
     wallet = DBPG::CON.exec 'SELECT * FROM Wallets'
     @last_id = 0
-    wallet.each do |row| 
+    wallet.each do |row|
       @last_id = row['id'].to_i
     end
   end
